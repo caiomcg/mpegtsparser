@@ -13,6 +13,7 @@ void printbincharpad(char c)
 
 Parser::Parser(std::string videoFile) {
 	fileName = videoFile;
+	counter = 0;
 	packetSize = 188;
 	packet = new unsigned char[188]();
 	
@@ -29,34 +30,23 @@ Parser::~Parser() {
 
 void Parser::readBytes() {
 	reader.read((char*)(&packet[0]), packetSize);
-	
-	if (packet[0] != 0x47)
-		readBytes();
-	else {
-		std::cout << "sync_byte = " << "0x47" << std::endl;
-		std::cout << "transport_error_indicator = " << ((packet[1] & 0x80) >> 7) << std::endl;
-		std::cout << "payload_unit_start_indicator = " << ((packet[1] & 0x40) >> 6) << std::endl;
-		std::cout << "transport_priority = " << ((packet[1] & 0x20) >> 5) << std::endl;
-		std::cout << "PID = " << (((packet[1] & 0x1F) << 8) | packet[2]) << std::endl;
-		std::cout << "transport_scrambling_control = " << (packet[3] & 0xC0) << std::endl;
-		switch ((packet[3] >> 6)){
-		case 0x00:
-			std::cout << "    Not Scrambled" << std::endl;
-			break;
-		case 0x01:
-			std::cout << "    Reserved for future use" << std::endl;
-			break;
-		case 0x02:
-			std::cout << "    Scrambled with even key" << std::endl;
-			break;  
-		case 0x03:
-			std::cout << "    Scrambled with odd key" << std::endl;
-			break;
-		}
-		std::cout << "adaptation_field_control = " << ((packet[3] & 0x30) >> 4) << std::endl;
-		std::cout << "continuity_counter = " << (packet[3] & 0xF) << std::endl;
-		int a;
-		std::cin >> a;
+}
+		
+void Parser::processPatOnly() {
 
+	while (true) {
+		readBytes();
+		if (packet[1] == 0x47 && (((packet[1] & 0x1F) << 8) | packet[2]) == 0) {
+			Header head(0x47, ((packet[1] & 0x80) >> 7), ((packet[1] & 0x40) >> 6), ((packet[1] & 0x20) >> 5), (((packet[1] & 0x1F) << 8) | packet[2]), (packet[3] & 0xC0), ((packet[3] & 0x30) >> 4), (packet[3] & 0xF), counter++);
+			PAT pat((unsigned int)packet[5], ((packet[6] & 0x80) >> 7), ((packet[6] & 0x03) | packet[7]), (packet[8] | packet[9]), ((unsigned int)((packet[10] & 0x3E) >> 1)), (packet[10] & 0x01), (unsigned int)(packet[11]), (unsigned int)(packet[12]));
+
+			packetHeader.push_back(head);
+			patTable.push_back(pat);
+		}
+		if (reader.eof())
+			break;
 	}
+}
+void Parser::process() {
+
 }
